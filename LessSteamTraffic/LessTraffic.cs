@@ -38,6 +38,11 @@ namespace LessSteam
             instance = null;
         }
 
+        /// <summary>
+        /// Notice how the default version registers a large number of Steam callbacks in a short time. When Steam responses are received,
+        /// every callback gets every response, which leads to quadratic behavior, which is bad. I tested with just a few hundred workshop
+        /// items and got 30 000 callbacks.
+        /// </summary>
         static void RequestDetails(EntryData data) { }
     }
 

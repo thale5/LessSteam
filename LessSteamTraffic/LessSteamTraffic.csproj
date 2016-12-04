@@ -7,7 +7,7 @@
     <ProjectGuid>{0366DA7B-0DBD-4149-983C-46F7BBDF4FC7}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>LessSteamTraffic</RootNamespace>
+    <RootNamespace>LessSteam</RootNamespace>
     <AssemblyName>LessSteamTraffic</AssemblyName>
     <TargetFrameworkVersion>v3.5</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
