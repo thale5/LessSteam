@@ -58,7 +58,7 @@ namespace LessSteam
                 if (m_EntryData.publishedFileId != PublishedFileId.invalid)
                 {
                     if (m_LastUpdateLabel != null)
-                        m_LastUpdateLabel.tooltip = FormatTimeInfo(m_WorkshopDetails.timeCreated, m_WorkshopDetails.timeUpdated, kEpoch);
+                        m_LastUpdateLabel.tooltip = FormatTimeInfo(m_WorkshopDetails.timeCreated, m_WorkshopDetails.timeUpdated);
 
                     if (m_ShareButton != null)
                         m_ShareButton.isVisible = (PlatformService.userID == m_WorkshopDetails.creatorID);
@@ -89,9 +89,10 @@ namespace LessSteam
             }
         }
 
-        static string FormatTimeInfo(uint timeCreated, uint timeUpdated, DateTime kEpoch)
+        static string FormatTimeInfo(uint timeCreated, uint timeUpdated)
         {
             string text = string.Empty;
+            DateTime kEpoch = new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc);
 
             if (timeCreated != 0u)
             {
