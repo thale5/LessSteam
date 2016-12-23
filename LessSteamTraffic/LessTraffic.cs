@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Reflection;
 using ColossalFramework.PlatformServices;
+using ColossalFramework.UI;
 
 namespace LessSteam
 {
@@ -9,12 +10,14 @@ namespace LessSteam
         public static LessTraffic instance;
         internal readonly Type evt;
         internal readonly MethodInfo onDetailsReceived, add, remove;
+        internal bool disableAds;
 
-        public LessTraffic()
+        public LessTraffic(bool disableAds)
         {
             try
             {
                 instance = this;
+                this.disableAds = disableAds;
                 System.Reflection.EventInfo ev = typeof(Workshop).GetEvent("eventUGCRequestUGCDetailsCompleted");
                 evt = ev.EventHandlerType;
                 onDetailsReceived = typeof(EntryData).GetMethod("OnDetailsReceived", BindingFlags.NonPublic | BindingFlags.Instance);
@@ -29,7 +32,21 @@ namespace LessSteam
             }
         }
 
-        internal static void Setup() => new LessTraffic().Deploy();
+        internal static void Setup()
+        {
+            bool disableAds = Settings.settings.disableAdPanel;
+            new LessTraffic(disableAds).Deploy();
+
+            if (disableAds)
+                try
+                {
+                    typeof(WorkshopAdPanel).GetField("dontInitialize", BindingFlags.NonPublic | BindingFlags.Static).SetValue(null, true);
+                }
+                catch (Exception e)
+                {
+                    UnityEngine.Debug.LogException(e);
+                }
+        }
 
         internal override void Dispose()
         {
@@ -41,9 +58,29 @@ namespace LessSteam
         /// <summary>
         /// Notice how the default version registers a large number of Steam callbacks in a short time. When Steam responses are received,
         /// every callback gets every response, which leads to quadratic behavior, which is bad. I tested with just a few hundred workshop
-        /// items and got 30 000 callbacks.
+        /// items and got 30 000 callback invocations.
         /// </summary>
-        static void RequestDetails(EntryData data) { }
+        static void RequestDetails(EntryData data)
+        {
+            if (instance.disableAds)
+                try
+                {
+                    UIComponent comp = UIView.Find("WorkshopAdPanel");
+                    Util.DebugPrint("WorkshopAdPanel exists:", comp != null);
+                    UILabel label = comp?.Find<UILabel>("DisabledLabel");
+                    Util.DebugPrint("DisabledLabel exists:", label != null);
+
+                    if (label != null)
+                    {
+                        label.text = "The Ad Panel is inactive";
+                        instance.disableAds = false;
+                    }
+                }
+                catch (Exception e)
+                {
+                    UnityEngine.Debug.LogException(e);
+                }
+        }
     }
 
     class MyHook : PackageEntry
