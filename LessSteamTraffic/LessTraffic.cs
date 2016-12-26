@@ -65,16 +65,12 @@ namespace LessSteam
             if (instance.disableAds)
                 try
                 {
+                    instance.disableAds = false;
                     UIComponent comp = UIView.Find("WorkshopAdPanel");
-                    Util.DebugPrint("WorkshopAdPanel exists:", comp != null);
                     UILabel label = comp?.Find<UILabel>("DisabledLabel");
-                    Util.DebugPrint("DisabledLabel exists:", label != null);
 
                     if (label != null)
-                    {
                         label.text = "The Ad Panel is inactive";
-                        instance.disableAds = false;
-                    }
                 }
                 catch (Exception e)
                 {
