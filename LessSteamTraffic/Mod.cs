@@ -15,7 +15,10 @@ namespace LessSteam
             Settings.helper = null;
 
             if (LessTraffic.instance != null)
+            {
                 LessTraffic.instance.disableAds = Settings.settings.disableAdPanel;
+                LessTraffic.instance.pending.Clear();
+            }
         }
     }
 }

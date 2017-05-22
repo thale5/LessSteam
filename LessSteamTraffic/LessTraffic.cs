@@ -2,15 +2,16 @@
 using System.Reflection;
 using ColossalFramework.PlatformServices;
 using ColossalFramework.UI;
+using System.Collections.Generic;
 
 namespace LessSteam
 {
     public sealed class LessTraffic : DetourUtility
     {
         public static LessTraffic instance;
-        internal readonly Type evt;
-        internal readonly MethodInfo onDetailsReceived, add, remove;
+        public HashSet<PublishedFileId> pending = new HashSet<PublishedFileId>();
         internal bool disableAds;
+        const string ROUTINE = "<RequestDetailsCoroutine>c__Iterator0";
 
         public LessTraffic(bool disableAds)
         {
@@ -18,13 +19,12 @@ namespace LessSteam
             {
                 instance = this;
                 this.disableAds = disableAds;
-                System.Reflection.EventInfo ev = typeof(Workshop).GetEvent("eventUGCRequestUGCDetailsCompleted");
-                evt = ev.EventHandlerType;
-                onDetailsReceived = typeof(EntryData).GetMethod("OnDetailsReceived", BindingFlags.NonPublic | BindingFlags.Instance);
-                add = ev.GetAddMethod();
-                remove = ev.GetRemoveMethod();
-                init(typeof(EntryData), "RequestDetails");
-                init(typeof(PackageEntry), "SetDetails", typeof(MyHook), "MyDetails");
+                Type coroutine = typeof(CategoryContentPanel).GetNestedType(ROUTINE, BindingFlags.NonPublic);
+
+                if (coroutine != null)
+                    init(coroutine, "MoveNext");
+
+                init(typeof(PackageEntry), "SetNameLabel", typeof(MyHook), "HookedNameLabel");
             }
             catch (Exception e)
             {
@@ -55,95 +55,54 @@ namespace LessSteam
             instance = null;
         }
 
-        /// <summary>
-        /// Notice how the default version registers a large number of Steam callbacks in a short time. When Steam responses are received,
-        /// every callback gets every response, which leads to quadratic behavior, which is bad. I tested with just a few hundred workshop
-        /// items and got 30 000 callback invocations.
-        /// </summary>
-        static void RequestDetails(EntryData data)
+        bool MoveNext()
         {
-            if (instance.disableAds)
+            if (LessTraffic.instance.disableAds)
                 try
                 {
-                    instance.disableAds = false;
                     UIComponent comp = UIView.Find("WorkshopAdPanel");
                     UILabel label = comp?.Find<UILabel>("DisabledLabel");
 
                     if (label != null)
+                    {
                         label.text = "The Ad Panel is inactive";
+                        LessTraffic.instance.disableAds = false;
+                    }
                 }
                 catch (Exception e)
                 {
                     UnityEngine.Debug.LogException(e);
                 }
+
+            return false;
         }
     }
 
     class MyHook : PackageEntry
     {
-        void MyDetails()
+        void HookedNameLabel(string entryName, string authorName)
         {
-            try
-            {
-                if (ReferenceEquals(authorName, string.Empty))
-                    RequestDetails(m_EntryData);
+            PublishedFileId id = publishedFileId;
 
-                if (m_EntryData.publishedFileId != PublishedFileId.invalid)
+            if (id != PublishedFileId.invalid)
+                try
                 {
-                    if (m_LastUpdateLabel != null)
-                        m_LastUpdateLabel.tooltip = FormatTimeInfo(m_WorkshopDetails.timeCreated, m_WorkshopDetails.timeUpdated);
+                    var pending = LessTraffic.instance.pending;
 
-                    if (m_ShareButton != null)
-                        m_ShareButton.isVisible = (PlatformService.userID == m_WorkshopDetails.creatorID);
-
-                    Update();
+                    if (ReferenceEquals(authorName, string.Empty))
+                    {
+                        if (pending.Add(id))
+                            PlatformService.workshop.RequestItemDetails(id);
+                    }
+                    else
+                        pending.Remove(id);
                 }
-            }
-            catch (Exception e)
-            {
-                UnityEngine.Debug.LogException(e);
-            }
-        }
+                catch (Exception e)
+                {
+                    UnityEngine.Debug.LogException(e);
+                }
 
-        static void RequestDetails(EntryData data)
-        {
-            if (!data.detailsPending && data.publishedFileId != PublishedFileId.invalid)
-            {
-                Set(data, "m_DetailsPending", true);
-
-                //PlatformService.workshop.eventUGCRequestUGCDetailsCompleted -= new Workshop.UGCDetailsHandler(data.OnDetailsReceived);
-                //PlatformService.workshop.eventUGCRequestUGCDetailsCompleted += new Workshop.UGCDetailsHandler(data.OnDetailsReceived);
-                // ==
-                Delegate d = Delegate.CreateDelegate(LessTraffic.instance.evt, data, LessTraffic.instance.onDetailsReceived);
-                object[] args = { d };
-                LessTraffic.instance.remove.Invoke(PlatformService.workshop, args);
-                LessTraffic.instance.add.Invoke(PlatformService.workshop, args);
-                PlatformService.workshop.RequestItemDetails(data.publishedFileId);
-            }
-        }
-
-        static string FormatTimeInfo(uint timeCreated, uint timeUpdated)
-        {
-            string text = string.Empty;
-            DateTime kEpoch = new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc);
-
-            if (timeCreated != 0u)
-            {
-                text += LocaleFormatter.FormatGeneric("CONTENTMANAGER_TIMECREATED", kEpoch.AddSeconds(timeCreated).ToLocalTime().ToString());
-
-                if (timeUpdated != 0u)
-                    text += "\n";
-            }
-
-            if (timeUpdated != 0u)
-                text += LocaleFormatter.FormatGeneric("CONTENTMANAGER_TIMEUPDATED", kEpoch.AddSeconds(timeUpdated).ToLocalTime().ToString());
-
-            return text;
-        }
-
-        static void Set(object instance, string field, object value)
-        {
-            instance.GetType().GetField(field, BindingFlags.NonPublic | BindingFlags.Instance).SetValue(instance, value);
+            m_NameLabel.text = FormatPackageName(entryName, authorName, isWorkshopItem);
         }
     }
 }
