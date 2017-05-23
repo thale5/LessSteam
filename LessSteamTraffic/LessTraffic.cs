@@ -3,6 +3,9 @@ using System.Reflection;
 using ColossalFramework.PlatformServices;
 using ColossalFramework.UI;
 using System.Collections.Generic;
+using ColossalFramework.Packaging;
+using ColossalFramework.Plugins;
+using ColossalFramework;
 
 namespace LessSteam
 {
@@ -25,6 +28,7 @@ namespace LessSteam
                     init(coroutine, "MoveNext");
 
                 init(typeof(PackageEntry), "SetNameLabel", typeof(MyHook), "HookedNameLabel");
+                init(typeof(PackageEntry), "GetMissingPresetAssets", typeof(MyHook), "MyMissingAssets");
             }
             catch (Exception e)
             {
@@ -103,6 +107,74 @@ namespace LessSteam
                 }
 
             m_NameLabel.text = FormatPackageName(entryName, authorName, isWorkshopItem);
+        }
+
+        List<ModInfo> MyMissingAssets()
+        {
+            List<ModInfo> list = new List<ModInfo>();
+
+            try
+            {
+                HashSet<ulong> whatWeHave = new HashSet<ulong>() { PublishedFileId.invalid.AsUInt64 };
+
+                foreach (Package p in PackageManager.allPackages)
+                    if (ulong.TryParse(p.packageName, out ulong value))
+                        whatWeHave.Add(value);
+
+                ModInfo[] presetAssets = GetPresetAssets();
+
+                for (int i = 0; i < presetAssets.Length; i++)
+                    if (!whatWeHave.Contains(presetAssets[i].modWorkshopID))
+                        list.Add(presetAssets[i]);
+
+                whatWeHave.Clear();
+
+                foreach (PluginManager.PluginInfo m in Singleton<PluginManager>.instance.GetPluginsInfo())
+                    whatWeHave.Add(m.publishedFileID.AsUInt64);
+
+                ModInfo[] presetMods = GetPresetMods();
+
+                for (int i = 0; i < presetMods.Length; i++)
+                    if (!whatWeHave.Contains(presetMods[i].modWorkshopID))
+                        list.Add(presetMods[i]);
+
+            }
+            catch (Exception e)
+            {
+                UnityEngine.Debug.LogException(e);
+            }
+
+            return list;
+        }
+
+        ModInfo[] GetPresetAssets()
+        {
+            SaveGameMetaData saveGameMetaData = (!(this.asset.type == UserAssetType.SaveGameMetaData)) ? null : ((this.m_EntryData.metaData == null) ? null : ((SaveGameMetaData) this.m_EntryData.metaData));
+            ScenarioMetaData scenarioMetaData = (!(this.asset.type == UserAssetType.ScenarioMetaData)) ? null : ((this.m_EntryData.metaData == null) ? null : ((ScenarioMetaData) this.m_EntryData.metaData));
+            if (saveGameMetaData != null && saveGameMetaData.assets != null)
+            {
+                return saveGameMetaData.assets;
+            }
+            if (scenarioMetaData != null && scenarioMetaData.assets != null)
+            {
+                return scenarioMetaData.assets;
+            }
+            return new ModInfo[0];
+        }
+
+        ModInfo[] GetPresetMods()
+        {
+            SaveGameMetaData saveGameMetaData = (!(this.asset.type == UserAssetType.SaveGameMetaData)) ? null : ((this.m_EntryData.metaData == null) ? null : ((SaveGameMetaData) this.m_EntryData.metaData));
+            ScenarioMetaData scenarioMetaData = (!(this.asset.type == UserAssetType.ScenarioMetaData)) ? null : ((this.m_EntryData.metaData == null) ? null : ((ScenarioMetaData) this.m_EntryData.metaData));
+            if (saveGameMetaData != null && saveGameMetaData.mods != null)
+            {
+                return saveGameMetaData.mods;
+            }
+            if (scenarioMetaData != null && scenarioMetaData.mods != null)
+            {
+                return scenarioMetaData.mods;
+            }
+            return new ModInfo[0];
         }
     }
 }
