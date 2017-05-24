@@ -29,6 +29,7 @@ namespace LessSteam
 
                 init(typeof(PackageEntry), "SetNameLabel", typeof(MyHook), "HookedNameLabel");
                 init(typeof(PackageEntry), "GetMissingPresetAssets", typeof(MyHook), "MyMissingAssets");
+                init(typeof(PackageEntry), "GetMissingPresetSubscriptions", typeof(MyHook), "MyMissingSubscriptions");
             }
             catch (Exception e)
             {
@@ -107,6 +108,32 @@ namespace LessSteam
                 }
 
             m_NameLabel.text = FormatPackageName(entryName, authorName, isWorkshopItem);
+        }
+
+        List<PublishedFileId> MyMissingSubscriptions()
+        {
+            List<ModInfo> missingPresetAssets = MyMissingAssets();
+            HashSet<PublishedFileId> set  = new HashSet<PublishedFileId>();
+
+            if (missingPresetAssets.Count > 0)
+                try
+                {
+                    HashSet<PublishedFileId> set2 = new HashSet<PublishedFileId>(PlatformService.workshop.GetSubscribedItems());
+
+                    foreach (ModInfo current in missingPresetAssets)
+                    {
+                        PublishedFileId id = new PublishedFileId(current.modWorkshopID);
+
+                        if (id != PublishedFileId.invalid && !set2.Contains(id))
+                            set.Add(id);
+                    }
+                }
+                catch (Exception e)
+                {
+                    UnityEngine.Debug.LogException(e);
+                }
+
+            return new List<PublishedFileId>(set);
         }
 
         List<ModInfo> MyMissingAssets()
