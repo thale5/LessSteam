@@ -18,29 +18,30 @@ namespace LessSteam
 
         public LessTraffic(bool disableAds)
         {
-            try
-            {
-                instance = this;
-                this.disableAds = disableAds;
-                Type coroutine = typeof(CategoryContentPanel).GetNestedType(ROUTINE, BindingFlags.NonPublic);
+            instance = this;
+            this.disableAds = disableAds;
+            Type coroutine = typeof(CategoryContentPanel).GetNestedType(ROUTINE, BindingFlags.NonPublic);
 
-                if (coroutine != null)
-                    init(coroutine, "MoveNext");
+            if (coroutine != null)
+                init(coroutine, "MoveNext");
 
-                init(typeof(PackageEntry), "SetNameLabel", typeof(MyHook), "HookedNameLabel");
-                init(typeof(PackageEntry), "GetMissingPresetAssets", typeof(MyHook), "MyMissingAssets");
-                init(typeof(PackageEntry), "GetMissingPresetSubscriptions", typeof(MyHook), "MyMissingSubscriptions");
-            }
-            catch (Exception e)
-            {
-                UnityEngine.Debug.LogException(e);
-            }
+            init(typeof(PackageEntry), "SetNameLabel", typeof(MyHook), "HookedNameLabel");
+            init(typeof(PackageEntry), "GetMissingPresetAssets", typeof(MyHook), "MyMissingAssets");
+            init(typeof(PackageEntry), "GetMissingPresetSubscriptions", typeof(MyHook), "MyMissingSubscriptions");
         }
 
         internal static void Setup()
         {
             bool disableAds = Settings.settings.disableAdPanel;
-            new LessTraffic(disableAds).Deploy();
+
+            try
+            {
+                new LessTraffic(disableAds).Deploy();
+            }
+            catch (Exception e)
+            {
+                UnityEngine.Debug.LogException(e);
+            }
 
             if (disableAds)
                 try
@@ -55,15 +56,24 @@ namespace LessSteam
 
         internal override void Dispose()
         {
-            Revert();
-            base.Dispose();
-            instance = null;
+            try
+            {
+                Util.DebugPrint("Mod disabled");
+                Revert();
+                base.Dispose();
+                instance = null;
+            }
+            catch (Exception e)
+            {
+                UnityEngine.Debug.LogException(e);
+            }
         }
 
         bool MoveNext()
         {
-            if (LessTraffic.instance.disableAds)
-                try
+            try
+            {
+                if (LessTraffic.instance.disableAds)
                 {
                     UIComponent comp = UIView.Find("WorkshopAdPanel");
                     UILabel label = comp?.Find<UILabel>("DisabledLabel");
@@ -74,10 +84,11 @@ namespace LessSteam
                         LessTraffic.instance.disableAds = false;
                     }
                 }
-                catch (Exception e)
-                {
-                    UnityEngine.Debug.LogException(e);
-                }
+            }
+            catch (Exception e)
+            {
+                UnityEngine.Debug.LogException(e);
+            }
 
             return false;
         }
@@ -164,7 +175,6 @@ namespace LessSteam
                 for (int i = 0; i < presetMods.Length; i++)
                     if (!whatWeHave.Contains(presetMods[i].modWorkshopID))
                         list.Add(presetMods[i]);
-
             }
             catch (Exception e)
             {
