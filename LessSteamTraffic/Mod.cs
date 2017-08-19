@@ -5,7 +5,7 @@ namespace LessSteam
     public sealed class Mod : LoadingExtensionBase, IUserMod
     {
         public string Name => "Less Steam";
-        public string Description => "Faster startup";
+        public string Description => "Less network traffic";
         public void OnEnabled() => LessTraffic.Setup();
 
         public void OnDisabled()
