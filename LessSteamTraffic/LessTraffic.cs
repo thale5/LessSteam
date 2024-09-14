@@ -8,6 +8,7 @@ using ColossalFramework.Packaging;
 using System.Collections;
 using System.Diagnostics;
 using System.Security.Cryptography;
+using UnityEngine;
 
 namespace LessSteam
 {
@@ -16,18 +17,18 @@ namespace LessSteam
         public static LessTraffic instance;
         public HashSet<PublishedFileId> pending = new HashSet<PublishedFileId>();
         internal bool disableAds;
-        //const string ROUTINE = "<RequestDetailsCoroutine>c__Iterator0";
+        const string ROUTINE = "<RequestDetailsCoroutine>c__Iterator0";
 
         public LessTraffic(bool disableAds)
         {
             instance = this;
             this.disableAds = disableAds;
-            //Type coroutine = typeof(CategoryContentPanel).GetNestedType(ROUTINE, BindingFlags.NonPublic);
+            Type coroutine = typeof(CategoryContentPanel).GetNestedType(ROUTINE, BindingFlags.NonPublic);
 
-            //if (coroutine != null)
-            //    init(coroutine, "MoveNext");
+            if (coroutine != null)
+                init(coroutine, "MoveNext");
 
-            //init(typeof(PackageEntry), "SetNameLabel", typeof(MyHook), "HookedNameLabel");
+            init(typeof(PackageEntry), "SetNameLabel", typeof(MyHook), "HookedNameLabel");
             init(typeof(EntryData), "OnDetailsReceived", typeof(MyEntry), "MyDetailsReceived");
             init(typeof(EntryData), "OnNameReceived", typeof(MyEntry), "MyNameReceived");
         }
@@ -109,28 +110,25 @@ namespace LessSteam
         void HookedNameLabel(string entryName, string authorName)
         {
             PublishedFileId id = publishedFileId;
-            Util.DebugPrint("entryName:", entryName, " authorName:", authorName, "id:", id);
 
-            if (id != PublishedFileId.invalid)
+            if (id != PublishedFileId.invalid && m_EntryData.needUpdateData && LessTraffic.instance.pending.Add(id))
                 try
                 {
-                    var pending = LessTraffic.instance.pending;
-
-                    if (ReferenceEquals(authorName, string.Empty))
-                    {
-                        if (pending.Add(id))
-                        {
-                            Util.DebugPrint("RequestItemDetails:", entryName);
-                            PlatformService.workshop.RequestItemDetails(id);
-                        }
-                    }
-                    else
-                        pending.Remove(id);
+                    MyEntry.DebugPrint("REQUESTDETAILS", m_EntryData);
+                    m_EntryData.lastDataRequest = Time.time;
+                    PlatformService.workshop.RequestItemDetails(id);
                 }
                 catch (Exception e)
                 {
                     UnityEngine.Debug.LogException(e);
                 }
+            else
+            {
+                if (id == PublishedFileId.invalid)
+                    Util.DebugPrint("Invalid Id  entryName", entryName, "authorName", authorName);
+                else
+                    MyEntry.DebugPrint("Not Requesting", m_EntryData);
+            }
 
             m_NameLabel.text = FormatPackageName(entryName, authorName, isWorkshopItem);
         }
@@ -142,11 +140,6 @@ namespace LessSteam
 
         public void MyDetailsReceived(UGCDetails details, bool ioError)
         {
-            string aps = "";
-            aps += asset != null ? "A" : " ";
-            aps += pluginInfo != null ? "P" : " ";
-            aps += subscription != null ? "S" : " ";
-
             if (publishedFileId == details.publishedFileId)
             {
                 Util.Set(this, "m_WorkshopDetails", details);
@@ -160,8 +153,7 @@ namespace LessSteam
                 updateTime = new DateTime(1970, 1, 1).AddSeconds(details.timeUpdated);
                 dataTimestamp = DateTime.UtcNow;
 
-                Util.DebugPrint("DetailsReceived", aps, "entryName", entryName, "authorName", authorName, "authorID", authorID,
-                    "publishedFileId", publishedFileId, "dataTimestamp", dataTimestamp, "updateTime", updateTime, "title", details.title);
+                DebugPrint("DetailsReceived", this);
 
                 var namesPending = (Dictionary<ulong, HashSet<EntryData>>) Util.GetStatic(typeof(EntryData), "m_namesPending");
                 if (!namesPending.TryGetValue(details.creatorID.AsUInt64, out HashSet<EntryData> value))
@@ -174,8 +166,6 @@ namespace LessSteam
                 Util.Set(this, "m_DetailsPending", false);
                 attachedEntry?.SetEntry(this);
             }
-            else
-                Util.DebugPrint("DetailsReceived", aps, "entryName", entryName, publishedFileId, "!=", details.publishedFileId);
         }
 
         private static void MyNameReceived(UserID id, PersonaChange flags)
@@ -187,14 +177,26 @@ namespace LessSteam
                 {
                     item.authorName = new Friend(item.workshopDetails.creatorID).personaName;
                     item.authorID = item.workshopDetails.creatorID.AsUInt64;
-                    Util.DebugPrint("NameReceived", "entryName", item.entryName, "authorName", item.authorName, "authorID", item.authorID,
-                        "publishedFileId", item.publishedFileId);
+
+                    DebugPrint("NameReceived", item);
+
                     item.attachedEntry?.SetNameLabel(item.entryName, item.authorName);
                 }
                 namesPending.Remove(id.AsUInt64);
             }
             else
-                Util.DebugPrint("NameReceived", "authorID miss", id.AsUInt64);
+                Util.DebugPrint("NameReceived  authorID miss", id.AsUInt64);
+        }
+
+        internal static void DebugPrint(string what, EntryData item)
+        {
+            string aps = "";
+            aps += item.asset != null ? "A" : " ";
+            aps += item.pluginInfo != null ? "P" : " ";
+            aps += item.subscription != null ? "S" : " ";
+
+            Util.DebugPrint(what, aps, "entryName", item.entryName, "authorName", item.authorName, "authorID", item.authorID,
+                "publishedFileId", item.publishedFileId, "dataTimestamp", item.dataTimestamp, "updateTime", item.updateTime);
         }
     }
 }
