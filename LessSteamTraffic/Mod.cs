@@ -4,9 +4,26 @@ namespace LessSteam
 {
     public sealed class Mod : LoadingExtensionBase, IUserMod
     {
-        public string Name => "Less Steam";
+        static bool done = false;
+        public string Name
+        {
+            get
+            {
+                if (!done)
+                {
+                    done = true;
+                    LessTraffic.Setup();
+                }
+
+                return "Less Steam";
+            }
+        }
+
         public string Description => "Less network traffic";
-        public void OnEnabled() => LessTraffic.Setup();
+        public void OnEnabled()
+        {
+            // LessTraffic.Setup();
+        }
 
         public void OnDisabled()
         {
