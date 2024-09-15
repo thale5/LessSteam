@@ -106,7 +106,8 @@ namespace LessSteam
                     UnityEngine.Debug.LogException(e);
                 }
 
-            m_NameLabel.text = FormatPackageName(entryName, authorName, isWorkshopItem);
+            if (authorName != "[unknown]" || !m_NameLabel.text.StartsWith(entryName))
+                m_NameLabel.text = FormatPackageName(entryName, authorName, isWorkshopItem);
         }
     }
 }
